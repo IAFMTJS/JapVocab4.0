@@ -1,0 +1,244 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>Japanse Woordenschat Quiz</title>
+  <style>
+    body {
+      font-family: "Segoe UI", sans-serif;
+      background: url('https://images.unsplash.com/photo-1549887534-4601e5ab9c83?auto=format&fit=crop&w=1400&q=80') no-repeat center center fixed;
+      background-size: cover;
+      margin: 0;
+      color: #f2f2f2;
+    }
+
+    .overlay {
+      background: rgba(0, 0, 0, 0.85);
+      padding: 30px;
+      margin: 20px auto;
+      max-width: 90%;
+      width: 700px;
+      border-radius: 10px;
+      text-align: center;
+    }
+
+    h1, h2 {
+      color: #ffd700;
+    }
+
+    button {
+      padding: 12px 24px;
+      margin: 10px;
+      font-size: 1.1em;
+      cursor: pointer;
+      background-color: #222;
+      color: #ffd700;
+      border: 1px solid #ffd700;
+      border-radius: 5px;
+    }
+
+    input[type="text"] {
+      padding: 10px;
+      font-size: 1em;
+      width: 80%;
+      margin: 10px 0;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .question {
+      font-size: 1.5em;
+      margin-bottom: 20px;
+    }
+
+    .progress {
+      margin-top: 10px;
+      color: #ccc;
+    }
+
+    .feedback {
+      font-size: 1.3em;
+      margin: 15px;
+    }
+
+    @media (max-width: 600px) {
+      .overlay {
+        padding: 20px;
+        width: 95%;
+      }
+
+      .question {
+        font-size: 1.2em;
+      }
+
+      button {
+        font-size: 1em;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="overlay" id="login-screen">
+    <h1>Welkom bij de Japanse Quiz</h1>
+    <p>Vul je naam in om te beginnen:</p>
+    <input type="text" id="username" placeholder="Jouw naam">
+    <button onclick="registerUser()">Verder</button>
+  </div>
+
+  <div class="overlay hidden" id="start-screen">
+    <h1>Start de Japanse Quiz</h1>
+    <p>Test je Japanse woordenschat (alleen kana!)</p>
+    <button onclick="startQuiz()">Start Quiz</button>
+  </div>
+
+  <div class="overlay hidden" id="quiz-screen">
+    <div class="question" id="question-text"></div>
+    <div id="answer-options"></div>
+    <input type="text" id="text-answer" class="hidden" placeholder="Typ je antwoord...">
+    <br>
+    <button onclick="submitAnswer()">Bevestig</button>
+    <div class="feedback" id="feedback"></div>
+    <div class="progress" id="progress"></div>
+  </div>
+
+  <div class="overlay hidden" id="result-screen">
+    <h2>Quiz Resultaat</h2>
+    <p id="score"></p>
+    <p id="time-taken"></p>
+    <p id="highscore"></p>
+    <button onclick="restartQuiz()">Opnieuw proberen</button>
+  </div>
+
+  <script>
+    const questions = [
+      { jp: "あした", nl: "Morgen", wrong: ["Sterven", "Klein", "Wat"] },
+      { jp: "ともだち", nl: "Vriend", wrong: ["Twee", "Weer", "Hond"] },
+      { jp: "パン", nl: "Brood", wrong: ["Drie", "Vriend", "Zee"] },
+      { jp: "あさ", nl: "Ochtend", wrong: ["Vier", "Zomer", "Station"] },
+      { jp: "あたらしい", nl: "Nieuw", wrong: ["Vijf", "Pop", "Geld"] },
+      { jp: "せんせい", nl: "Leraar", wrong: ["Drinken", "Lucht", "Wat"] },
+      { jp: "うみ", nl: "Zee", wrong: ["Klein", "Doen/maken", "Morgen"] },
+      { jp: "さくら", nl: "Kersenbloesem", wrong: ["Snel", "Brood", "Zout"] },
+      { jp: "きょう", nl: "Vandaag", wrong: ["Acht", "Drank", "Sushi"] },
+      { jp: "たべる", nl: "Eten", wrong: ["Leraar", "Drinken", "Vriend"] }
+    ];
+
+    let current = 0;
+    let score = 0;
+    let isText = false;
+    let startTime;
+
+    function registerUser() {
+      const name = document.getElementById('username').value.trim();
+      if (name) {
+        localStorage.setItem('quiz-user', name);
+        let stats = JSON.parse(localStorage.getItem('quiz-stats')) || {};
+        if (!stats[name]) stats[name] = { plays: 0, highscore: 0 };
+        localStorage.setItem('quiz-stats', JSON.stringify(stats));
+        document.getElementById('login-screen').classList.add('hidden');
+        document.getElementById('start-screen').classList.remove('hidden');
+      }
+    }
+
+    function startQuiz() {
+      const name = localStorage.getItem('quiz-user');
+      if (!name) return;
+      document.getElementById('start-screen').classList.add('hidden');
+      document.getElementById('quiz-screen').classList.remove('hidden');
+      startTime = new Date();
+      current = 0;
+      score = 0;
+      loadQuestion();
+    }
+
+    function loadQuestion() {
+      document.getElementById('feedback').innerText = "";
+      const q = questions[current];
+      document.getElementById('question-text').innerText = `Wat betekent: ${q.jp}?`;
+
+      const answers = [q.nl, ...q.wrong].sort(() => Math.random() - 0.5);
+      const optsDiv = document.getElementById('answer-options');
+      optsDiv.innerHTML = "";
+
+      isText = Math.random() < 0.5;
+      const textInput = document.getElementById('text-answer');
+
+      if (isText) {
+        textInput.classList.remove('hidden');
+        textInput.value = "";
+      } else {
+        textInput.classList.add('hidden');
+        answers.forEach(ans => {
+          const btn = document.createElement('button');
+          btn.innerText = ans;
+          btn.onclick = () => selectAnswer(ans);
+          optsDiv.appendChild(btn);
+        });
+      }
+
+      document.getElementById('progress').innerText = `Vraag ${current + 1} van ${questions.length}`;
+    }
+
+    function selectAnswer(selected) {
+      checkAnswer(selected);
+    }
+
+    function submitAnswer() {
+      if (isText) {
+        const userInput = document.getElementById('text-answer').value.trim().toLowerCase();
+        checkAnswer(userInput);
+      }
+    }
+
+    function checkAnswer(answer) {
+      const correct = questions[current].nl.toLowerCase();
+      const feedback = document.getElementById('feedback');
+
+      if (answer.toLowerCase() === correct) {
+        score++;
+        feedback.innerText = "正解！ Goed gedaan! ✅";
+      } else {
+        feedback.innerText = `違う！ Het juiste antwoord was: ${correct} ❌`;
+      }
+
+      setTimeout(() => {
+        current++;
+        if (current < questions.length) {
+          loadQuestion();
+        } else {
+          showResults();
+        }
+      }, 1500);
+    }
+
+    function showResults() {
+      const duration = Math.floor((new Date() - startTime) / 1000);
+      document.getElementById('quiz-screen').classList.add('hidden');
+      document.getElementById('result-screen').classList.remove('hidden');
+      document.getElementById('score').innerText = `Je score: ${score}/${questions.length}`;
+      document.getElementById('time-taken').innerText = `Tijd: ${duration} seconden`;
+
+      const name = localStorage.getItem('quiz-user');
+      const stats = JSON.parse(localStorage.getItem('quiz-stats')) || {};
+      if (!stats[name]) stats[name] = { plays: 0, highscore: 0 };
+      stats[name].plays++;
+      if (score > stats[name].highscore) stats[name].highscore = score;
+      localStorage.setItem('quiz-stats', JSON.stringify(stats));
+
+      document.getElementById('highscore').innerText = `Highscore van ${name}: ${stats[name].highscore} | Gespeeld: ${stats[name].plays}x`;
+    }
+
+    function restartQuiz() {
+      document.getElementById('result-screen').classList.add('hidden');
+      document.getElementById('quiz-screen').classList.remove('hidden');
+      startTime = new Date();
+      current = 0;
+      score = 0;
+      loadQuestion();
+    }
+  </script>
+</body>
+</html>
